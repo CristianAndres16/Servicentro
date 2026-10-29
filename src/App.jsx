@@ -1,39 +1,55 @@
 import { useState } from "react";
 import { initialOrders } from "./data/orders.js";
+import "./App.css";
 
-export default function App() {
+const quickServices = [
+  { key: "lavadaSencilla", label: "Lavada sencilla" },
+  { key: "brillada", label: "Brillada" },
+  { key: "alineacion", label: "Alineación" },
+  { key: "balanceo", label: "Balanceo" },
+  { key: "cambioAceite", label: "Cambio de aceite" },
+];
+
+const emptyServices = {
+  lavadaSencilla: false,
+  brillada: false,
+  alineacion: false,
+  balanceo: false,
+  cambioAceite: false,
+};
+
+function formatCurrency(value) {
+  return `$${value.toLocaleString("es-CO")}`;
+}
+
+function App() {
   const [orders, setOrders] = useState(initialOrders);
-  const [activeTab, setActiveTab] = useState("serviteca"); // 'serviteca' | 'taller' | 'ventas'
-
-  // Estados para el formulario de Creación en Serviteca
+  const [activeTab, setActiveTab] = useState("serviteca");
   const [placaInput, setPlacaInput] = useState("");
   const [clienteInput, setClienteInput] = useState("");
   const [telefonoInput, setTelefonoInput] = useState("");
   const [mecanicoInput, setMecanicoInput] = useState("");
-  const [serviciosRapidos, setServiciosRapidos] = useState({
-    lavadaSencilla: false,
-    brillada: false,
-    alineacion: false,
-    balanceo: false,
-    cambioAceite: false,
-  });
-
-  // Estados temporales para el Taller Mecánico
+  const [serviciosRapidos, setServiciosRapidos] = useState(emptyServices);
   const [descItem, setDescItem] = useState("");
   const [precioItem, setPrecioItem] = useState("");
-
-  // Estado para la Factura Modal (Lineth)
   const [ordenFactura, setOrdenFactura] = useState(null);
 
-  // 1. CREAR NUEVA ORDEN
-  const handleCrearOrden = (e) => {
-    e.preventDefault();
+  const activeOrders = orders.filter(
+    (order) => order.estadoMecanico === "En Taller",
+  ).length;
+  const pendingPayments = orders.filter(
+    (order) => !order.estadoFacturacion.includes("Pagado"),
+  ).length;
+
+  function handleCrearOrden(event) {
+    event.preventDefault();
+
     if (!placaInput || !clienteInput || !mecanicoInput) {
-      alert("Por favor completa la Placa, el Cliente y el Mecánico asignado.");
+      alert("Por favor completa la placa, el cliente y el mecánico asignado.");
       return;
     }
 
-    const nuevaOrden = {
+    const newOrder = {
       id: Date.now(),
       placa: placaInput.toUpperCase(),
       cliente: clienteInput,
@@ -42,403 +58,608 @@ export default function App() {
       fechaIngreso: new Date().toISOString().split("T")[0],
       serviciosServiteca: { ...serviciosRapidos },
       itemsTaller: [
-        { idItem: Date.now() + 1, descripcion: "Mano de obra taller / Diagnóstico", cantidad: 1, precio: 0 }
+        {
+          idItem: Date.now() + 1,
+          descripcion: "Mano de obra taller / Diagnóstico",
+          cantidad: 1,
+          precio: 0,
+        },
       ],
       estadoMecanico: "En Taller",
-      estadoFacturacion: "Pendiente de Cobro"
+      estadoFacturacion: "Pendiente de Cobro",
     };
 
-    setOrders([nuevaOrden, ...orders]);
+    setOrders((currentOrders) => [newOrder, ...currentOrders]);
     setPlacaInput("");
     setClienteInput("");
     setTelefonoInput("");
     setMecanicoInput("");
-    setServiciosRapidos({
-      lavadaSencilla: false,
-      brillada: false,
-      alineacion: false,
-      balanceo: false,
-      cambioAceite: false,
-    });
-
+    setServiciosRapidos(emptyServices);
     alert("¡Vehículo recibido en patio y asignado al taller con éxito!");
     setActiveTab("taller");
-  };
+  }
 
-  // 2. AGREGAR ÍTEM EN TALLER
-  const handleAgregarItemTaller = (e, orderId) => {
-    e.preventDefault();
+  function handleAgregarItemTaller(event, order) {
+    event.preventDefault();
+
     if (!descItem || !precioItem) {
       alert("Ingresa la descripción y el precio del ítem.");
       return;
     }
 
-    const nuevasOrdenes = orders.map((ord) => {
-      if (ord.id === orderId) {
-        const nuevoItem = {
-          idItem: Date.now(),
-          descripcion: descItem,
-          cantidad: 1,
-          precio: Number(precioItem),
-        };
-        return { ...ord, itemsTaller: [...ord.itemsTaller, nuevoItem] };
-      }
-      return ord;
-    });
+    const newItem = {
+      idItem: `${order.id}-${order.itemsTaller.length + 1}`,
+      descripcion: descItem,
+      cantidad: 1,
+      precio: Number(precioItem),
+    };
 
-    setOrders(nuevasOrdenes);
+    setOrders((currentOrders) =>
+      currentOrders.map((currentOrder) =>
+        currentOrder.id === order.id
+          ? {
+              ...currentOrder,
+              itemsTaller: [...currentOrder.itemsTaller, newItem],
+            }
+          : currentOrder,
+      ),
+    );
     setDescItem("");
     setPrecioItem("");
-  };
+  }
 
-  // 3. CERRAR ORDEN EN TALLER
-  const handleCerrarOrden = (orderId) => {
-    const nuevasOrdenes = orders.map((ord) => {
-      if (ord.id === orderId) {
-        return { ...ord, estadoMecanico: "Listo para Cierre" };
-      }
-      return ord;
-    });
-    setOrders(nuevasOrdenes);
-  };
+  function handleCerrarOrden(orderId) {
+    setOrders((currentOrders) =>
+      currentOrders.map((order) =>
+        order.id === orderId
+          ? { ...order, estadoMecanico: "Listo para Cierre" }
+          : order,
+      ),
+    );
+  }
 
-  // 4. FACTURAR Y PAGAR
-  const handleFacturarOrden = (orderId) => {
-    const nuevasOrdenes = orders.map((ord) => {
-      if (ord.id === orderId) {
-        return { ...ord, estadoFacturacion: "Facturado y Pagado ✅" };
-      }
-      return ord;
-    });
-    setOrders(nuevasOrdenes);
-  };
+  function handleFacturarOrden(orderId) {
+    setOrders((currentOrders) =>
+      currentOrders.map((order) =>
+        order.id === orderId
+          ? { ...order, estadoFacturacion: "Facturado y Pagado ✅" }
+          : order,
+      ),
+    );
+  }
+
+  const tabs = [
+    { id: "serviteca", label: "Recepción", icon: "🚗" },
+    { id: "taller", label: "Taller mecánico", icon: "🔧" },
+    { id: "ventas", label: "Ventas y facturación", icon: "📊" },
+  ];
 
   return (
-    <div style={{ background: "#090d16", minHeight: "100vh", color: "#f8fafc", fontFamily: "system-ui, -apple-system, sans-serif", padding: "24px" }}>
-      
-      {/* Encabezado Principal Estilizado */}
-      <header style={{ textAlign: "center", marginBottom: "30px", borderBottom: "1px solid #1e293b", paddingBottom: "20px" }}>
-        <h1 style={{ color: "#38bdf8", fontSize: "2.8rem", margin: 0, fontWeight: "800", letterSpacing: "-0.5px" }}>⛽ Primax Service Control</h1>
-        <p style={{ color: "#94a3b8", marginTop: "8px", fontSize: "1.05rem" }}>Plataforma Integral de Operaciones: Serviteca, Taller Mecánico y Ventas</p>
+    <div className="app-shell">
+      <header className="site-header">
+        <div className="header-inner">
+          <a className="brand" href="#inicio" aria-label="Primax Serviteca, inicio">
+            <span className="brand-mark" aria-hidden="true">P</span>
+            <span className="brand-copy">
+              <strong>Primax</strong>
+              <small>SERVITECA · MEDELLÍN</small>
+            </span>
+          </a>
+
+          <nav className="header-nav" aria-label="Navegación principal">
+            <a href="#inicio">Inicio</a>
+            <a href="#operacion">Operación</a>
+            <a href="#resumen">Resumen</a>
+          </nav>
+
+          <button
+            className="header-action"
+            type="button"
+            onClick={() => setActiveTab("serviteca")}
+          >
+            + Nueva orden
+          </button>
+        </div>
       </header>
 
-      {/* Menú de Navegación por Pestañas */}
-      <nav style={{ display: "flex", justifyContent: "center", gap: "15px", marginBottom: "30px" }}>
-        {[
-          { id: "serviteca", label: "🚗 1. Serviteca / Patio" },
-          { id: "taller", label: "🔧 2. Taller Mecánico" },
-          { id: "ventas", label: "📊 3. Ventas y Facturación" }
-        ].map((tab) => (
-          <button 
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{ 
-              background: activeTab === tab.id ? "linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)" : "#1e293b", 
-              color: activeTab === tab.id ? "#090d16" : "#cbd5e1", 
-              border: activeTab === tab.id ? "none" : "1px solid #334155", 
-              padding: "12px 24px", borderRadius: "10px", fontWeight: "700", cursor: "pointer", 
-              boxShadow: activeTab === tab.id ? "0 4px 14px rgba(56, 189, 248, 0.4)" : "0 2px 4px rgba(0,0,0,0.2)",
-              transition: "all 0.2s ease"
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
-
-      {/* Contenedor Principal */}
-      <main style={{ maxWidth: "1050px", margin: "0 auto", background: "#111827", padding: "30px", borderRadius: "16px", border: "1px solid #1f2937", boxShadow: "0 10px 25px rgba(0,0,0,0.4)" }}>
-        
-        {/* --- VISTA 1: SERVITECA / PATIO --- */}
-        {activeTab === "serviteca" && (
-          <div>
-            <div style={{ marginBottom: "25px" }}>
-              <h2 style={{ color: "#38bdf8", margin: "0 0 5px 0", fontSize: "1.6rem" }}>🚗 Recepción y Servicios Rápidos (Patio)</h2>
-              <p style={{ color: "#94a3b8", margin: 0 }}>Captura inicial de datos del vehículo, selección de servicios rápidos y asignación de mecánico.</p>
-            </div>
-            
-            {/* Formulario de Registro */}
-            <form onSubmit={handleCrearOrden} style={{ background: "#1f2937", padding: "24px", borderRadius: "12px", border: "1px solid #374151", marginBottom: "35px" }}>
-              <h3 style={{ margin: "0 0 20px 0", color: "#fbbf24", fontSize: "1.2rem", display: "flex", alignItems: "center", gap: "8px" }}>
-                📝 Formulario de Ingreso de Vehículo
-              </h3>
-              
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "20px", marginBottom: "20px" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.85rem", color: "#94a3b8", marginBottom: "6px", fontWeight: "600" }}>Placa:</label>
-                  <input 
-                    type="text" placeholder="Ej. BFX-228" value={placaInput} onChange={(e) => setPlacaInput(e.target.value)}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", background: "#111827", border: "1px solid #4b5563", color: "#fff", boxSizing: "border-box" }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.85rem", color: "#94a3b8", marginBottom: "6px", fontWeight: "600" }}>Cliente:</label>
-                  <input 
-                    type="text" placeholder="Ej. Marcela" value={clienteInput} onChange={(e) => setClienteInput(e.target.value)}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", background: "#111827", border: "1px solid #4b5563", color: "#fff", boxSizing: "border-box" }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.85rem", color: "#94a3b8", marginBottom: "6px", fontWeight: "600" }}>Teléfono:</label>
-                  <input 
-                    type="text" placeholder="Ej. 3116052556" value={telefonoInput} onChange={(e) => setTelefonoInput(e.target.value)}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", background: "#111827", border: "1px solid #4b5563", color: "#fff", boxSizing: "border-box" }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.85rem", color: "#94a3b8", marginBottom: "6px", fontWeight: "600" }}>Mecánico Asignado:</label>
-                  <input 
-                    type="text" placeholder="Ej. Carlos Gómez" value={mecanicoInput} onChange={(e) => setMecanicoInput(e.target.value)}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", background: "#111827", border: "1px solid #4b5563", color: "#fff", boxSizing: "border-box" }}
-                  />
-                </div>
-              </div>
-
-              {/* Checkboxes de Servicios Rápidos */}
-              <div style={{ marginBottom: "25px", background: "#111827", padding: "16px", borderRadius: "8px", border: "1px solid #374151" }}>
-                <label style={{ display: "block", fontSize: "0.9rem", color: "#cbd5e1", marginBottom: "12px", fontWeight: "600" }}>Servicios Rápidos de Serviteca (Ticket Físico):</label>
-                <div style={{ display: "flex", gap: "25px", flexWrap: "wrap" }}>
-                  {[
-                    { key: "lavadaSencilla", label: "Lavada Sencilla" },
-                    { key: "brillada", label: "Brillada" },
-                    { key: "alineacion", label: "Alineación" },
-                    { key: "balanceo", label: "Balanceo" },
-                    { key: "cambioAceite", label: "Cambio de Aceite" }
-                  ].map((srv) => (
-                    <label key={srv.key} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "0.9rem", color: "#e2e8f0" }}>
-                      <input 
-                        type="checkbox" checked={serviciosRapidos[srv.key]}
-                        onChange={(e) => setServiciosRapidos({...serviciosRapidos, [srv.key]: e.target.checked})}
-                        style={{ width: "16px", height: "16px", accentColor: "#38bdf8" }}
-                      /> {srv.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <button 
-                type="submit"
-                style={{ background: "#38bdf8", color: "#090d16", border: "none", padding: "12px 24px", borderRadius: "8px", fontWeight: "800", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
+      <main className="dashboard" id="inicio">
+        <section className="hero-panel" aria-labelledby="hero-title">
+          <div className="hero-content">
+            <span className="eyebrow">CENTRO DE OPERACIONES</span>
+            <h1 id="hero-title">Tu serviteca, en marcha.</h1>
+            <p>
+              Recibe vehículos, coordina el trabajo del taller y lleva cada
+              servicio hasta su facturación desde un solo lugar.
+            </p>
+            <div className="hero-actions">
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => setActiveTab("serviteca")}
               >
-                🚀 Registrar y Enviar al Taller
+                Registrar vehículo <span aria-hidden="true">↗</span>
               </button>
-            </form>
-
-            <h3 style={{ color: "#38bdf8", fontSize: "1.3rem", marginBottom: "15px" }}>📋 Órdenes Activas en Patio</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {orders.map((ord) => (
-                <div key={ord.id} style={{ background: "#1f2937", padding: "18px", borderRadius: "10px", border: "1px solid #374151", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <h4 style={{ margin: "0 0 6px 0", color: "#38bdf8", fontSize: "1.1rem" }}>🚗 Placa: {ord.placa} — Cliente: {ord.cliente}</h4>
-                    <p style={{ margin: "3px 0", color: "#94a3b8", fontSize: "0.85rem" }}>Teléfono: {ord.telefono} | Mecánico: <strong style={{ color: "#fbbf24" }}>{ord.mecanico}</strong></p>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <span style={{ background: ord.estadoMecanico === "En Taller" ? "#ca8a04" : "#16a34a", color: "#fff", padding: "6px 12px", borderRadius: "6px", fontSize: "0.8rem", fontWeight: "700" }}>
-                      {ord.estadoMecanico}
-                    </span>
-                  </div>
-                </div>
-              ))}
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => setActiveTab("taller")}
+              >
+                Ver órdenes del taller
+              </button>
             </div>
           </div>
-        )}
+          <div className="hero-decoration" aria-hidden="true">
+            <span className="hero-orbit orbit-one" />
+            <span className="hero-orbit orbit-two" />
+            <span className="hero-car">✦</span>
+          </div>
+          <div className="hero-caption">
+            <span className="online-indicator" />
+            Sistema operativo
+          </div>
+        </section>
 
-        {/* --- VISTA 2: TALLER MECÁNICO --- */}
-        {activeTab === "taller" && (
-          <div>
-            <div style={{ marginBottom: "25px" }}>
-              <h2 style={{ color: "#38bdf8", margin: "0 0 5px 0", fontSize: "1.6rem" }}>🔧 Módulo de Taller (Mecánico)</h2>
-              <p style={{ color: "#94a3b8", margin: 0 }}>Supervisa los vehículos asignados, añade repuestos o mano de obra con los días y marca cuando esté listo.</p>
+        <section className="metrics-grid" id="resumen" aria-label="Resumen de operación">
+          <article className="metric-card">
+            <span className="metric-icon metric-blue" aria-hidden="true">▤</span>
+            <div>
+              <p>Órdenes registradas</p>
+              <strong>{orders.length}</strong>
             </div>
-            
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-              {orders.map((ord) => (
-                <div key={ord.id} style={{ background: "#1f2937", padding: "20px", borderRadius: "12px", border: "1px solid #374151" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", borderBottom: "1px solid #374151", paddingBottom: "12px" }}>
-                    <div>
-                      <h3 style={{ margin: "0 0 4px 0", color: "#38bdf8", fontSize: "1.2rem" }}>🚗 Placa: {ord.placa} ({ord.cliente})</h3>
-                      <p style={{ margin: 0, fontSize: "0.85rem", color: "#94a3b8" }}>
-                        Mecánico responsable: <strong style={{ color: "#fbbf24" }}>{ord.mecanico}</strong> | Estado: <span style={{ color: ord.estadoMecanico === "En Taller" ? "#facc15" : "#4ade80", fontWeight: "bold" }}>{ord.estadoMecanico}</span>
-                      </p>
-                    </div>
+            <span className="metric-note">en total</span>
+          </article>
+          <article className="metric-card">
+            <span className="metric-icon metric-amber" aria-hidden="true">⚙</span>
+            <div>
+              <p>En taller</p>
+              <strong>{activeOrders}</strong>
+            </div>
+            <span className="metric-note">por atender</span>
+          </article>
+          <article className="metric-card">
+            <span className="metric-icon metric-green" aria-hidden="true">$</span>
+            <div>
+              <p>Pagos pendientes</p>
+              <strong>{pendingPayments}</strong>
+            </div>
+            <span className="metric-note">por cobrar</span>
+          </article>
+        </section>
 
-                    {ord.estadoMecanico === "En Taller" ? (
-                      <button 
-                        onClick={() => handleCerrarOrden(ord.id)}
-                        style={{ background: "#16a34a", color: "#fff", border: "none", padding: "9px 16px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", fontSize: "0.85rem" }}
-                      >
-                        ✅ Marcar Orden Lista
-                      </button>
-                    ) : (
-                      <span style={{ background: "#065f46", color: "#34d399", padding: "8px 14px", borderRadius: "8px", fontSize: "0.85rem", fontWeight: "700" }}>
-                        ✔ Trabajo Finalizado
-                      </span>
-                    )}
+        <section className="workspace" id="operacion">
+          <div className="workspace-heading">
+            <div>
+              <span className="section-eyebrow">GESTIÓN DIARIA</span>
+              <h2>Panel de operación</h2>
+            </div>
+            <p>Administra el recorrido de cada vehículo en la serviteca.</p>
+          </div>
+
+          <div className="tabs" role="tablist" aria-label="Módulos de operación">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                id={`${tab.id}-tab`}
+                className={`tab-button ${activeTab === tab.id ? "is-active" : ""}`}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`${tab.id}-panel`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <span aria-hidden="true">{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="workspace-panel">
+            {activeTab === "serviteca" && (
+              <section
+                id="serviteca-panel"
+                role="tabpanel"
+                aria-labelledby="serviteca-tab"
+              >
+                <div className="panel-heading">
+                  <div>
+                    <span className="panel-kicker">01 · SERVITECA / PATIO</span>
+                    <h3>Recepción de vehículos</h3>
+                    <p>
+                      Registra los datos del cliente y asigna los servicios de
+                      patio y el mecánico responsable.
+                    </p>
                   </div>
-                  
-                  <h4 style={{ margin: "10px 0 6px 0", color: "#fbbf24", fontSize: "0.95rem" }}>📦 Ítems, Repuestos e Insumos en Taller:</h4>
-                  <ul style={{ margin: "0 0 15px 0", paddingLeft: "20px", color: "#cbd5e1", fontSize: "0.9rem" }}>
-                    {ord.itemsTaller.map((item) => (
-                      <li key={item.idItem} style={{ marginBottom: "4px" }}>
-                        {item.descripcion} (Cant: {item.cantidad}) — <strong style={{ color: "#4ade80" }}>${(item.precio * item.cantidad).toLocaleString()}</strong>
-                      </li>
-                    ))}
-                  </ul>
+                </div>
 
-                  {ord.estadoMecanico === "En Taller" && (
-                    <form onSubmit={(e) => handleAgregarItemTaller(e, ord.id)} style={{ background: "#111827", padding: "12px", borderRadius: "8px", border: "1px dashed #4b5563", display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-                      <input 
-                        type="text" placeholder="Repuesto / Insumo (Ej. Pastas de freno)" value={descItem} onChange={(e) => setDescItem(e.target.value)}
-                        style={{ flex: 2, padding: "8px 12px", borderRadius: "6px", background: "#1f2937", border: "1px solid #4b5563", color: "#fff", fontSize: "0.85rem" }}
+                <form className="form-card" id="new-order-form" onSubmit={handleCrearOrden}>
+                  <div className="form-card-heading">
+                    <span className="form-heading-icon" aria-hidden="true">✎</span>
+                    <div>
+                      <h4>Datos de ingreso</h4>
+                      <p>Los campos marcados con * son obligatorios.</p>
+                    </div>
+                  </div>
+
+                  <div className="form-grid">
+                    <div className="form-field">
+                      <label htmlFor="plate">Placa <span>*</span></label>
+                      <input
+                        id="plate"
+                        type="text"
+                        placeholder="Ej. BFX-228"
+                        value={placaInput}
+                        onChange={(event) => setPlacaInput(event.target.value)}
+                        required
                       />
-                      <input 
-                        type="number" placeholder="Precio ($)" value={precioItem} onChange={(e) => setPrecioItem(e.target.value)}
-                        style={{ flex: 1, padding: "8px 12px", borderRadius: "6px", background: "#1f2937", border: "1px solid #4b5563", color: "#fff", fontSize: "0.85rem" }}
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor="client">Nombre del cliente <span>*</span></label>
+                      <input
+                        id="client"
+                        type="text"
+                        placeholder="Ej. Marcela"
+                        value={clienteInput}
+                        onChange={(event) => setClienteInput(event.target.value)}
+                        required
                       />
-                      <button 
-                        type="submit"
-                        style={{ background: "#38bdf8", color: "#090d16", border: "none", padding: "9px 14px", borderRadius: "6px", fontWeight: "700", cursor: "pointer", fontSize: "0.85rem" }}
-                      >
-                        + Agregar Ítem
-                      </button>
-                    </form>
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor="phone">Teléfono</label>
+                      <input
+                        id="phone"
+                        type="tel"
+                        placeholder="Ej. 311 605 2556"
+                        value={telefonoInput}
+                        onChange={(event) => setTelefonoInput(event.target.value)}
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label htmlFor="mechanic">Mecánico asignado <span>*</span></label>
+                      <input
+                        id="mechanic"
+                        type="text"
+                        placeholder="Ej. Carlos Gómez"
+                        value={mecanicoInput}
+                        onChange={(event) => setMecanicoInput(event.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <fieldset className="services-fieldset">
+                    <legend>Servicios rápidos de serviteca</legend>
+                    <div className="service-options">
+                      {quickServices.map((service) => (
+                        <label className="service-option" key={service.key}>
+                          <input
+                            type="checkbox"
+                            checked={serviciosRapidos[service.key]}
+                            onChange={(event) =>
+                              setServiciosRapidos((currentServices) => ({
+                                ...currentServices,
+                                [service.key]: event.target.checked,
+                              }))
+                            }
+                          />
+                          <span>{service.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <div className="form-actions">
+                    <button className="primary-button" type="submit">
+                      Registrar y enviar al taller <span aria-hidden="true">→</span>
+                    </button>
+                  </div>
+                </form>
+
+                <div className="list-heading">
+                  <div>
+                    <span className="panel-kicker">SEGUIMIENTO</span>
+                    <h3>Órdenes en patio</h3>
+                  </div>
+                  <span className="count-badge">{orders.length} órdenes</span>
+                </div>
+                <div className="order-list">
+                  {orders.length === 0 ? (
+                    <p className="empty-state">Todavía no hay vehículos registrados.</p>
+                  ) : (
+                    orders.map((order) => (
+                      <article className="order-card patio-card" key={order.id}>
+                        <div className="order-icon" aria-hidden="true">🚘</div>
+                        <div className="order-main">
+                          <h4>{order.placa}</h4>
+                          <p>{order.cliente} <span>·</span> {order.telefono}</p>
+                          <small>Mecánico: <strong>{order.mecanico}</strong></small>
+                          <div className="service-chips">
+                            {quickServices
+                              .filter((service) => order.serviciosServiteca[service.key])
+                              .map((service) => (
+                                <span key={service.key}>{service.label}</span>
+                              ))}
+                          </div>
+                        </div>
+                        <span
+                          className={`status-badge ${
+                            order.estadoMecanico === "En Taller" ? "status-progress" : "status-ready"
+                          }`}
+                        >
+                          {order.estadoMecanico}
+                        </span>
+                      </article>
+                    ))
                   )}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              </section>
+            )}
 
-        {/* --- VISTA 3: VENTAS Y FACTURACIÓN --- */}
-        {activeTab === "ventas" && (
-          <div>
-            <div style={{ marginBottom: "25px" }}>
-              <h2 style={{ color: "#38bdf8", margin: "0 0 5px 0", fontSize: "1.6rem" }}>📊 Módulo de Ventas y Facturación (Lineth)</h2>
-              <p style={{ color: "#94a3b8", margin: 0 }}>Consolidado financiero, auditoría de órdenes y emisión de factura detallada para impresión.</p>
-            </div>
-            
-            <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-              {orders.map((ord) => {
-                const totalOrden = ord.itemsTaller.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
-                
-                return (
-                  <div key={ord.id} style={{ background: "#1f2937", padding: "20px", borderRadius: "12px", border: "1px solid #374151", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "20px" }}>
-                    <div>
-                      <h3 style={{ margin: "0 0 5px 0", color: "#38bdf8", fontSize: "1.15rem" }}>Placa: {ord.placa} | Cliente: {ord.cliente}</h3>
-                      <p style={{ margin: "3px 0", color: "#94a3b8", fontSize: "0.85rem" }}>
-                        Mecánico: <strong style={{ color: "#fbbf24" }}>{ord.mecanico}</strong> | Estado Taller: <span style={{ color: ord.estadoMecanico === "En Taller" ? "#facc15" : "#4ade80", fontWeight: "bold" }}>{ord.estadoMecanico}</span>
-                      </p>
-                      <p style={{ margin: "3px 0", color: "#94a3b8", fontSize: "0.85rem" }}>
-                        Pago: <span style={{ color: ord.estadoFacturacion.includes("Pagado") ? "#34d399" : "#fbbf24", fontWeight: "bold" }}>{ord.estadoFacturacion}</span>
-                      </p>
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
-                      <div style={{ textAlign: "right" }}>
-                        <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.8rem" }}>Total Consolidado:</p>
-                        <h3 style={{ margin: "2px 0 0 0", color: "#4ade80", fontSize: "1.3rem" }}>${totalOrden.toLocaleString()}</h3>
-                      </div>
-
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        {/* Botón para abrir la Factura Imprimible */}
-                        <button 
-                          onClick={() => setOrdenFactura(ord)}
-                          style={{ background: "#38bdf8", color: "#090d16", border: "none", padding: "9px 14px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", fontSize: "0.85rem" }}
-                        >
-                          🖨️ Ver Factura
-                        </button>
-
-                        {ord.estadoFacturacion !== "Facturado y Pagado ✅" && (
-                          <button 
-                            onClick={() => handleFacturarOrden(ord.id)}
-                            style={{ background: "#f59e0b", color: "#090d16", border: "none", padding: "9px 14px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", fontSize: "0.85rem" }}
-                          >
-                            💳 Cobrar
-                          </button>
-                        )}
-                      </div>
-                    </div>
+            {activeTab === "taller" && (
+              <section id="taller-panel" role="tabpanel" aria-labelledby="taller-tab">
+                <div className="panel-heading">
+                  <div>
+                    <span className="panel-kicker">02 · TALLER MECÁNICO</span>
+                    <h3>Órdenes de trabajo</h3>
+                    <p>
+                      Consulta el trabajo asignado, registra repuestos y mano
+                      de obra, y actualiza el estado del vehículo.
+                    </p>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+                </div>
 
+                <div className="order-list">
+                  {orders.length === 0 ? (
+                    <p className="empty-state">No hay órdenes pendientes en el taller.</p>
+                  ) : (
+                    orders.map((order) => (
+                      <article className="order-card workshop-card" key={order.id}>
+                        <div className="workshop-card-heading">
+                          <div className="order-icon" aria-hidden="true">🔧</div>
+                          <div className="order-main">
+                            <span className="panel-kicker">ORDEN · {order.fechaIngreso}</span>
+                            <h4>{order.placa} <span>·</span> {order.cliente}</h4>
+                            <p>Mecánico responsable: <strong>{order.mecanico}</strong></p>
+                          </div>
+                          <span
+                            className={`status-badge ${
+                              order.estadoMecanico === "En Taller" ? "status-progress" : "status-ready"
+                            }`}
+                          >
+                            {order.estadoMecanico}
+                          </span>
+                        </div>
+
+                        <div className="items-section">
+                          <h5>Ítems, repuestos e insumos</h5>
+                          <ul className="item-list">
+                            {order.itemsTaller.map((item) => (
+                              <li key={item.idItem}>
+                                <span>{item.descripcion} <small>× {item.cantidad}</small></span>
+                                <strong>{formatCurrency(item.precio * item.cantidad)}</strong>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {order.estadoMecanico === "En Taller" ? (
+                          <div className="workshop-actions">
+                            <form
+                              className="add-item-form"
+                              onSubmit={(event) => handleAgregarItemTaller(event, order)}
+                            >
+                              <input
+                                aria-label="Descripción del repuesto o insumo"
+                                type="text"
+                                placeholder="Repuesto o insumo"
+                                value={descItem}
+                                onChange={(event) => setDescItem(event.target.value)}
+                                required
+                              />
+                              <input
+                                aria-label="Precio del repuesto o insumo"
+                                type="number"
+                                min="0"
+                                placeholder="Precio ($)"
+                                value={precioItem}
+                                onChange={(event) => setPrecioItem(event.target.value)}
+                                required
+                              />
+                              <button className="outline-button" type="submit">
+                                + Agregar ítem
+                              </button>
+                            </form>
+                            <button
+                              className="success-button"
+                              type="button"
+                              onClick={() => handleCerrarOrden(order.id)}
+                            >
+                              ✓ Marcar orden lista
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="completed-note">
+                            <span aria-hidden="true">✓</span> Trabajo finalizado; listo para facturación.
+                          </div>
+                        )}
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+            )}
+
+            {activeTab === "ventas" && (
+              <section id="ventas-panel" role="tabpanel" aria-labelledby="ventas-tab">
+                <div className="panel-heading">
+                  <div>
+                    <span className="panel-kicker">03 · VENTAS Y FACTURACIÓN</span>
+                    <h3>Resumen de cobros</h3>
+                    <p>
+                      Revisa los totales de cada orden, registra el pago y
+                      genera la factura para impresión.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="order-list">
+                  {orders.length === 0 ? (
+                    <p className="empty-state">Aún no hay órdenes para facturar.</p>
+                  ) : (
+                    orders.map((order) => {
+                      const totalOrder = order.itemsTaller.reduce(
+                        (total, item) => total + item.precio * item.cantidad,
+                        0,
+                      );
+
+                      return (
+                        <article className="order-card sales-card" key={order.id}>
+                          <div className="order-icon sales-icon" aria-hidden="true">＄</div>
+                          <div className="order-main">
+                            <span className="panel-kicker">ORDEN · {order.fechaIngreso}</span>
+                            <h4>{order.placa} <span>·</span> {order.cliente}</h4>
+                            <p>Mecánico: <strong>{order.mecanico}</strong></p>
+                            <span
+                              className={`status-badge ${
+                                order.estadoFacturacion.includes("Pagado")
+                                  ? "status-ready"
+                                  : "status-pending"
+                              }`}
+                            >
+                              {order.estadoFacturacion}
+                            </span>
+                          </div>
+                          <div className="sales-total">
+                            <small>Total de la orden</small>
+                            <strong>{formatCurrency(totalOrder)}</strong>
+                          </div>
+                          <div className="sales-actions">
+                            <button
+                              className="outline-button"
+                              type="button"
+                              onClick={() => setOrdenFactura(order)}
+                            >
+                              Ver factura
+                            </button>
+                            {order.estadoFacturacion !== "Facturado y Pagado ✅" && (
+                              <button
+                                className="primary-button"
+                                type="button"
+                                onClick={() => handleFacturarOrden(order.id)}
+                              >
+                                Registrar pago
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
+            )}
+          </div>
+        </section>
+
+        <footer className="site-footer">
+          <a className="brand footer-brand" href="#inicio">
+            <span className="brand-mark" aria-hidden="true">P</span>
+            <span className="brand-copy">
+              <strong>Primax Serviteca</strong>
+              <small>OPERACIÓN Y SERVICIO</small>
+            </span>
+          </a>
+          <p>Servicio confiable para cada kilómetro.</p>
+          <small>© 2026 · Panel de operaciones</small>
+        </footer>
       </main>
 
-      {/* --- MODAL DE FACTURA / TICKET IMPRIMIBLE PARA LINETH --- */}
       {ordenFactura && (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: "rgba(0,0,0,0.75)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000, padding: "20px" }}>
-          <div style={{ background: "#ffffff", color: "#0f172a", width: "100%", maxWidth: "600px", borderRadius: "12px", padding: "30px", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.3)", position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
-            
-            {/* Cabecera Factura */}
-            <div style={{ textAlign: "center", borderBottom: "2px dashed #cbd5e1", paddingBottom: "15px", marginBottom: "20px" }}>
-              <h2 style={{ margin: 0, color: "#0284c7", fontSize: "1.8rem" }}>⛽ ESTACIÓN DE SERVICIO PRIMAX</h2>
-              <p style={{ margin: "4px 0", fontSize: "0.85rem", color: "#64748b" }}>Serviteca, Taller Mecánico y Lubricantes</p>
-              <p style={{ margin: "2px 0", fontSize: "0.8rem", color: "#64748b" }}>NIT: 900.123.456-1 | Medellín, Colombia</p>
-              <h3 style={{ margin: "10px 0 0 0", color: "#334155", fontSize: "1.1rem" }}>FACTURA DE VENTA / SERVICIO</h3>
+        <div
+          className="modal-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setOrdenFactura(null);
+          }}
+        >
+          <section
+            className="invoice-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invoice-title"
+          >
+            <div className="invoice-heading">
+              <span className="brand-mark" aria-hidden="true">P</span>
+              <div>
+                <h2 id="invoice-title">ESTACIÓN DE SERVICIO PRIMAX</h2>
+                <p>Serviteca, taller mecánico y lubricantes</p>
+                <small>NIT: 900.123.456-1 · Medellín, Colombia</small>
+              </div>
             </div>
+            <h3 className="invoice-title">Factura de venta / servicio</h3>
 
-            {/* Datos del Cliente y Carro */}
-            <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", marginBottom: "20px", fontSize: "0.9rem", border: "1px solid #e2e8f0" }}>
-              <p style={{ margin: "4px 0" }}><strong>Placa:</strong> {ordenFactura.placa}</p>
-              <p style={{ margin: "4px 0" }}><strong>Cliente:</strong> {ordenFactura.cliente}</p>
-              <p style={{ margin: "4px 0" }}><strong>Teléfono:</strong> {ordenFactura.telefono}</p>
-              <p style={{ margin: "4px 0" }}><strong>Mecánico Encargado:</strong> {ordenFactura.mecanico}</p>
-              <p style={{ margin: "4px 0" }}><strong>Fecha de Ingreso:</strong> {ordenFactura.fechaIngreso}</p>
-            </div>
+            <dl className="invoice-details">
+              <div><dt>Placa</dt><dd>{ordenFactura.placa}</dd></div>
+              <div><dt>Cliente</dt><dd>{ordenFactura.cliente}</dd></div>
+              <div><dt>Teléfono</dt><dd>{ordenFactura.telefono}</dd></div>
+              <div><dt>Mecánico</dt><dd>{ordenFactura.mecanico}</dd></div>
+              <div><dt>Fecha de ingreso</dt><dd>{ordenFactura.fechaIngreso}</dd></div>
+            </dl>
 
-            {/* Tabla Detallada */}
-            <h4 style={{ margin: "0 0 10px 0", color: "#0f172a", fontSize: "1rem" }}>Desglose de Ítems y Servicios:</h4>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px", fontSize: "0.9rem" }}>
-              <thead>
-                <tr style={{ background: "#f1f5f9", borderBottom: "2px solid #cbd5e1" }}>
-                  <th style={{ textAlign: "left", padding: "8px" }}>Descripción</th>
-                  <th style={{ textAlign: "center", padding: "8px" }}>Cant.</th>
-                  <th style={{ textAlign: "right", padding: "8px" }}>Precio Unit.</th>
-                  <th style={{ textAlign: "right", padding: "8px" }}>Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ordenFactura.itemsTaller.map((item, idx) => (
-                  <tr key={idx} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                    <td style={{ padding: "8px" }}>{item.descripcion}</td>
-                    <td style={{ textAlign: "center", padding: "8px" }}>{item.cantidad}</td>
-                    <td style={{ textAlign: "right", padding: "8px" }}>${item.precio.toLocaleString()}</td>
-                    <td style={{ textAlign: "right", padding: "8px", fontWeight: "bold" }}>${(item.precio * item.cantidad).toLocaleString()}</td>
+            <div className="invoice-table-wrap">
+              <table className="invoice-table">
+                <thead>
+                  <tr>
+                    <th>Descripción</th>
+                    <th>Cant.</th>
+                    <th>Precio unit.</th>
+                    <th>Subtotal</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Total Factura */}
-            <div style={{ textAlign: "right", marginBottom: "30px", borderTop: "2px solid #0f172a", paddingTop: "10px" }}>
-              <h2 style={{ margin: 0, color: "#16a34a", fontSize: "1.6rem" }}>
-                Total a Pagar: ${ordenFactura.itemsTaller.reduce((acc, i) => acc + (i.precio * i.cantidad), 0).toLocaleString()}
-              </h2>
+                </thead>
+                <tbody>
+                  {ordenFactura.itemsTaller.map((item) => (
+                    <tr key={item.idItem}>
+                      <td>{item.descripcion}</td>
+                      <td>{item.cantidad}</td>
+                      <td>{formatCurrency(item.precio)}</td>
+                      <td>{formatCurrency(item.precio * item.cantidad)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            {/* Botones de Acción Modal */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              <button 
+            <div className="invoice-total">
+              <span>Total a pagar</span>
+              <strong>
+                {formatCurrency(
+                  ordenFactura.itemsTaller.reduce(
+                    (total, item) => total + item.precio * item.cantidad,
+                    0,
+                  ),
+                )}
+              </strong>
+            </div>
+
+            <div className="invoice-actions">
+              <button
+                className="outline-button"
+                type="button"
                 onClick={() => setOrdenFactura(null)}
-                style={{ background: "#64748b", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "8px", fontWeight: "700", cursor: "pointer" }}
               >
                 Cerrar
               </button>
-              <button 
+              <button
+                className="primary-button"
+                type="button"
                 onClick={() => window.print()}
-                style={{ background: "#0284c7", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "8px", fontWeight: "700", cursor: "pointer" }}
               >
-                🖨️ Imprimir Factura
+                Imprimir factura
               </button>
             </div>
-
-          </div>
+          </section>
         </div>
       )}
-
     </div>
   );
 }
+
+export default App;
