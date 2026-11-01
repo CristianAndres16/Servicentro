@@ -1,83 +1,82 @@
 import { useState } from "react";
 
-export function ProductForm({ onAgregarProducto }) {
-  const [nombre, setNombre] = useState("");
-  const [precio, setPrecio] = useState("");
-  const [stock, setStock] = useState("");
+function ProductForm({
+  onAddItem,
+  title = "¿No está en el catálogo?",
+  description: helpText = "Agrega otro servicio, repuesto o insumo a esta orden.",
+  submitLabel = "Agregar ítem",
+}) {
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [type, setType] = useState("Producto");
 
-  const handleSubmit = (e) => {
-    e.preventDefault(); // Evita que la página se recargue por defecto
-
-    // Validación básica exigida en las fichas del curso
-    if (!nombre || precio <= 0 || stock < 0) {
-      alert("Por favor completa todos los campos correctamente.");
-      return;
-    }
-
-    // Creamos el nuevo objeto producto (con la estructura de tus fichas)
-    const nuevoProducto = {
-      id: Date.now(),
-      nombre: nombre,
-      precio: Number(precio),
-      stock: Number(stock),
-    };
-
-    // Enviamos el producto al componente principal
-    onAgregarProducto(nuevoProducto);
-
-    // Limpiamos el formulario después de enviar
-    setNombre("");
-    setPrecio("");
-    setStock("");
-  };
+  async function handleSubmit(event) {
+    event.preventDefault();
+    const added = await onAddItem({
+      descripcion: description.trim(),
+      cantidad: Number(quantity),
+      precio: Number(price),
+      tipo: type,
+    });
+    if (added === false) return;
+    setDescription("");
+    setPrice("");
+    setQuantity("1");
+    setType("Producto");
+  }
 
   return (
-    <div style={{ background: "#1e293b", padding: "20px", borderRadius: "8px", border: "1px solid #334155", boxShadow: "0 4px 6px rgba(0,0,0,0.2)", marginBottom: "20px" }}>
-      <h3 style={{ marginTop: 0, color: "#38bdf8", borderBottom: "2px solid #334155", paddingBottom: "10px" }}>
-        ➕ Agregar Nuevo Producto
-      </h3>
-      
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        <div>
-          <label style={{ display: "block", fontSize: "0.85rem", color: "#94a3b8", marginBottom: "4px" }}>Nombre del producto:</label>
-          <input 
-            type="text" 
-            value={nombre} 
-            onChange={(e) => setNombre(e.target.value)} 
-            placeholder="Ej. Gaseosa 1.5L"
-            style={{ width: "100%", padding: "8px", borderRadius: "4px", background: "#0f172a", border: "1px solid #334155", color: "#fff", boxSizing: "border-box" }}
-          />
-        </div>
-
-        <div>
-          <label style={{ display: "block", fontSize: "0.85rem", color: "#94a3b8", marginBottom: "4px" }}>Precio ($):</label>
-          <input 
-            type="number" 
-            value={precio} 
-            onChange={(e) => setPrecio(e.target.value)} 
-            placeholder="Ej. 4000"
-            style={{ width: "100%", padding: "8px", borderRadius: "4px", background: "#0f172a", border: "1px solid #334155", color: "#fff", boxSizing: "border-box" }}
-          />
-        </div>
-
-        <div>
-          <label style={{ display: "block", fontSize: "0.85rem", color: "#94a3b8", marginBottom: "4px" }}>Stock inicial (Unidades):</label>
-          <input 
-            type="number" 
-            value={stock} 
-            onChange={(e) => setStock(e.target.value)} 
-            placeholder="Ej. 20"
-            style={{ width: "100%", padding: "8px", borderRadius: "4px", background: "#0f172a", border: "1px solid #334155", color: "#fff", boxSizing: "border-box" }}
-          />
-        </div>
-
-        <button 
-          type="submit"
-          style={{ background: "#38bdf8", color: "#0f172a", border: "none", padding: "10px", borderRadius: "4px", fontWeight: "bold", cursor: "pointer", marginTop: "5px" }}
-        >
-          Guardar Producto
-        </button>
-      </form>
-    </div>
+    <form className="custom-item-form" onSubmit={handleSubmit}>
+      <div className="custom-item-heading">
+        <h4>{title}</h4>
+        <p>{helpText}</p>
+      </div>
+      <label>
+        Trabajo o producto
+        <input
+          type="text"
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="Ej. revisión de suspensión"
+          required
+        />
+      </label>
+      <label>
+        Tipo
+        <select value={type} onChange={(event) => setType(event.target.value)}>
+          <option value="Servicio">Servicio / trabajo</option>
+          <option value="Producto">Repuesto / producto</option>
+        </select>
+      </label>
+      <label>
+        Precio unitario
+        <input
+          type="number"
+          min="0"
+          step="100"
+          value={price}
+          onChange={(event) => setPrice(event.target.value)}
+          placeholder="$"
+          required
+        />
+      </label>
+      <label>
+        Cantidad
+        <input
+          type="number"
+          min="1"
+          step="1"
+          value={quantity}
+          onChange={(event) => setQuantity(event.target.value)}
+          required
+        />
+      </label>
+      <button className="outline-button custom-item-submit" type="submit">
+        + {submitLabel}
+      </button>
+    </form>
   );
 }
+
+export default ProductForm;

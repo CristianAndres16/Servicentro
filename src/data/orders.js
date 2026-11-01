@@ -6,16 +6,12 @@ export const initialOrders = [
     telefono: "3116052556",
     fechaIngreso: "2026-10-22",
     mecanico: "Carlos Gómez",
-    serviciosServiteca: {
-      lavadaSencilla: true,
-      brillada: false,
-      alineacion: true,
-      balanceo: true,
-      cambioAceite: false,
-    },
     itemsTaller: [
-      { idItem: 101, descripcion: "Mano de obra taller", cantidad: 1, precio: 320000 },
-      { idItem: 102, descripcion: "Líquido de frenos", cantidad: 2, precio: 25000 }
+      { idItem: 101, descripcion: "Mano de obra taller", cantidad: 1, precio: 320000, tipo: "Servicio" },
+      { idItem: 102, descripcion: "Líquido de frenos", cantidad: 2, precio: 25000, tipo: "Producto" },
+      { idItem: 103, descripcion: "Lavado sencillo", cantidad: 1, precio: 25000, tipo: "Servicio" },
+      { idItem: 104, descripcion: "Alineación", cantidad: 1, precio: 65000, tipo: "Servicio" },
+      { idItem: 105, descripcion: "Balanceo", cantidad: 1, precio: 40000, tipo: "Servicio" }
     ],
     estadoMecanico: "Listo para Cierre",
     estadoFacturacion: "Pendiente de Cobro"
@@ -27,17 +23,11 @@ export const initialOrders = [
     telefono: "3217592414",
     fechaIngreso: "2026-10-20",
     mecanico: "Alberto 'El Pro' Ruiz",
-    serviciosServiteca: {
-      lavadaSencilla: false,
-      brillada: false,
-      alineacion: false,
-      balanceo: false,
-      cambioAceite: true,
-    },
     itemsTaller: [
-      { idItem: 201, descripcion: "Mano de obra taller", cantidad: 1, precio: 450000 },
-      { idItem: 202, descripcion: "Aceite Primax", cantidad: 6, precio: 57000 },
-      { idItem: 203, descripcion: "Pastas de freno", cantidad: 1, precio: 231000 }
+      { idItem: 201, descripcion: "Mano de obra taller", cantidad: 1, precio: 450000, tipo: "Servicio" },
+      { idItem: 202, descripcion: "Aceite Primax", cantidad: 6, precio: 57000, tipo: "Producto" },
+      { idItem: 203, descripcion: "Pastas de freno", cantidad: 1, precio: 231000, tipo: "Producto" },
+      { idItem: 204, descripcion: "Cambio de aceite", cantidad: 1, precio: 35000, tipo: "Servicio" }
     ],
     estadoMecanico: "En Taller",
     estadoFacturacion: "Pendiente de Cobro"

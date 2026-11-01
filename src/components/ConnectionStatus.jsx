@@ -1,83 +1,32 @@
-import {
-    useState,
-    useEffect
-} from "react";
-
+import { useEffect, useState } from "react";
 
 function ConnectionStatus() {
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
-    const [
-        isOnline,
-        setIsOnline
-    ] = useState(
-        navigator.onLine
-    );
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+    }
 
+    function handleOffline() {
+      setIsOnline(false);
+    }
 
-    useEffect(() => {
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
-        function handleOnline() {
-            setIsOnline(true);
-        }
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
-
-        function handleOffline() {
-            setIsOnline(false);
-        }
-
-
-        window.addEventListener(
-            "online",
-            handleOnline
-        );
-
-
-        window.addEventListener(
-            "offline",
-            handleOffline
-        );
-
-
-        return () => {
-
-            window.removeEventListener(
-                "online",
-                handleOnline
-            );
-
-
-            window.removeEventListener(
-                "offline",
-                handleOffline
-            );
-
-        };
-
-    }, []);
-
-
-    return (
-        <div className="connection-status">
-
-            <span
-                className={
-                    isOnline
-                        ? "status-dot online"
-                        : "status-dot offline"
-                }
-            >
-            </span>
-
-            {
-                isOnline
-                    ? "Con conexión"
-                    : "Sin conexión"
-            }
-
-        </div>
-    );
-
+  return (
+    <span className={`connection-status ${isOnline ? "is-online" : "is-offline"}`}>
+      <span className="connection-dot" aria-hidden="true" />
+      {isOnline ? "Con conexión" : "Sin conexión"}
+    </span>
+  );
 }
-
 
 export default ConnectionStatus;

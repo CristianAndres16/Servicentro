@@ -1,11 +1,17 @@
-import { ProductCard } from "./ProductCard";
+import ProductCard from "./ProductCard.jsx";
 
-export function ProductGrid({ productos, onVender }) {
+function ProductGrid({ items, onAdd }) {
+  if (items.length === 0) {
+    return <p className="empty-state">No encontramos servicios o repuestos con esa búsqueda.</p>;
+  }
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", padding: "20px" }}>
-      {productos.map((prod) => (
-        <ProductCard key={prod.id} producto={prod} onVender={onVender} />
+    <div className="catalog-grid">
+      {items.map((item) => (
+        <ProductCard key={item.id} item={item} onAdd={onAdd} />
       ))}
     </div>
   );
 }
+
+export default ProductGrid;

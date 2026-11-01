@@ -1,25 +1,22 @@
-export function ProductCard({ producto, onVender }) {
+function ProductCard({ item, onAdd }) {
   return (
-    <div style={{ background: "#1e293b", color: "#fff", padding: "16px", borderRadius: "8px", marginBottom: "12px", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
-      <h3>{producto.nombre}</h3>
-      <p style={{ color: "#38bdf8", fontWeight: "bold" }}>Precio: ${producto.precio.toLocaleString()}</p>
-      <p>Stock disponible: {producto.stock} unidades</p>
-      
-      <button 
-        onClick={() => onVender(producto.id)}
-        style={{ 
-          background: producto.stock > 0 ? "#10b981" : "#64748b", 
-          color: "#fff", 
-          border: "none", 
-          padding: "8px 12px", 
-          borderRadius: "4px", 
-          cursor: producto.stock > 0 ? "pointer" : "not-allowed", 
-          fontWeight: "bold" 
-        }}
-        disabled={producto.stock === 0}
-      >
-        {producto.stock > 0 ? "Vender" : "Agotado"}
-      </button>
-    </div>
+    <article className="catalog-card">
+      <div className="catalog-card-top">
+        <span className="catalog-card-icon" aria-hidden="true">
+          {item.type === "Servicio" ? "⚙" : "▣"}
+        </span>
+        <span className="catalog-card-category">{item.category}</span>
+      </div>
+      <h4>{item.name}</h4>
+      <p>{item.description}</p>
+      <div className="catalog-card-footer">
+        <strong>{item.price === 0 ? "Por definir" : `$${item.price.toLocaleString("es-CO")}`}</strong>
+        <button type="button" className="outline-button" onClick={() => onAdd(item)}>
+          + Agregar
+        </button>
+      </div>
+    </article>
   );
 }
+
+export default ProductCard;
